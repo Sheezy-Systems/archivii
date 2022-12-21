@@ -1,39 +1,43 @@
 import json
+import time
 import requests
 import bs4
 import re
 import codecs
 import os
 from dotenv import load_dotenv
-posts = []
-BASE_URL, Type, GROUP_ID = None, None, None
+import colorama
+settings = {}
+posts, tmp = [], []
+previousCount = 0
 
 class Post:
-    def __init__(self, postID, author, content):
-        self.author = author
+    def __init__(self, authorID, authorName, likeCount, content):
+        self.author = {"Name": authorName, "id": authorID}
         self.content = content
-        self.postID = postID
+        self.likeCount = likeCount
+
 
     def __str__(self):
         return f'{self.author}: {self.content}'
 
-def do_request(reqURL, secret):
+def do_request(reqURL):
     cookies = {
-        'SESS61c75f44be1e14cdb172294ad6a89a4e': secret # Authorization cookie has this name
+        settings.get("COOKIE_NAME"): os.environ["SECRET"] # Authorization cookie has this name
     }
     response = requests.get(reqURL, cookies=cookies)
+    time.sleep(0.1) # Schoology has a rate limit of 3 requests per second, this works for some reason
     return response
 
-def parseLink(TYPE, GROUP_ID):
-    global BASE_URL
-    url = BASE_URL + "/" + TYPE + "/" + GROUP_ID + '/feed?page=0'
-    print(url)
-    tmp = []
-    authorID = None
-    response = do_request(url, os.environ["SECRET"])
-    html = json.loads(response.text).get('output')
-    html = re.subn(r'<(script).*?</\1>(?s)', '', html, flags=re.DOTALL)[0]
-    soup = bs4.BeautifulSoup(html, 'html.parser')
+def parseLink(TYPE, GROUP_ID, page=0):
+    global previousCount, tmp
+    url = settings.get("BASE_URL") + "/" + TYPE + "/" + GROUP_ID + '/feed?page=' + str(page)
+    print("Checking page " + str(page) + "...")
+    authorID, likeCount = "" , 0
+    response = do_request(url)
+    html = json.loads(response.text).get('output') # get html from json
+    html = re.subn(r'<(script).*?</\1>(?s)', '', html, flags=re.DOTALL)[0] # remvoe js from html
+    soup = bs4.BeautifulSoup(html, 'html.parser') # use bs4 to parse html
     
     #write beautified version
     with codecs.open("out.html", 'w', "utf-8") as f:
@@ -43,32 +47,53 @@ def parseLink(TYPE, GROUP_ID):
         author = post.find(class_='update-sentence-inner').find('a').text
         text = ""
         for i in range(len(post.find_all('p'))):
-            text += post.find_all('p')[i].text + '\n'
+            text += post.find_all('p')[i].text + '\n' # add newline to end of each paragraph
         text = text[:-2] # remove trailing newline
         for link in post.find_all("a"):
-            linkClass = link.get("class")
-            print(linkClass)
-            if linkClass == ['show-more-link'] or 'show-more-link': # Has a show more button; all text not being shown
-                print("Show more link found")
-                text += "..."
-                fetchFullText(link.get("href").split("/")[-1])
-                break
-            elif linkClass == ['like-details-btn'] or "like-details-btn":
-                authorID = link.get("href").split("/")[-1]
-        
-        tmp.append(Post(authorID, author, text))
+            splitURL = link.get("href").split("/")
+            linkClass = link.get("class") # get class name of link
+            # if linkClass == ['like-details-btn'] or "like-details-btn":
+            #     authorID = splitURL[-1]
+            if str(link.get("id")).endswith("-show-more-link") and (linkClass == ['show-more-link'] or linkClass == 'show-more-link'): # Has a show more button; all text not being shown
+                text = fetchFullText(splitURL[2], splitURL[-1])
+            try:
+                if splitURL[2] == "n" and (linkClass == ['like-details-btn'] or linkClass =='like-details-btn'):
+                    likeCount = link.text
+                    authorID = splitURL[-1]
+            except IndexError:
+                pass # Not a like count anyways
+            text = text.replace("\u00a0", "")
+            text = text.replace("\\n", "\n")
+
+        tmp.append(Post(authorID, author, likeCount, text))
+
+    if len(tmp) > previousCount:
+        previousCount = len(tmp)
+        page += 1
+        parseLink(TYPE, GROUP_ID, page)
     return tmp
 
-def fetchFullText(postID):
-    pass
+def fetchFullText(ID1, ID2):
+    url = settings.get("BASE_URL") + "/update_post/" + ID1 + "/show_more/" + ID2
+    response = do_request(url)
+    try:
+        soup = bs4.BeautifulSoup(json.loads(response.text).get("update"), 'html.parser')
+    except:
+        print("Error fetching full text")
+        print(response.text)
+        return ""
+    return(soup.text)
 
 if __name__ == '__main__':
-    BASE_URL = "https://schoology.tesd.net"
-    TYPE = "group"
-    GROUP_ID = "812485279"
-    load_dotenv()
-    posts = parseLink(TYPE, GROUP_ID)
+    try:
+        with open('config.json') as f:
+            settings = json.load(f)
+    except [FileNotFoundError]:
+        print("No config file found")
+        exit()
 
-    for post in posts:
-        print (str(post) + "\n\n")
-    print("Found " + str(len(posts)) + " posts")
+    load_dotenv()
+    posts = parseLink(settings.get("TYPE"), settings.get("ID"))
+    print("Done, found " + str(len(posts)) + " posts.")
+    with open("posts.json", 'w') as f:
+        f.write(json.dumps([ob.__dict__ for ob in posts], indent=4))
