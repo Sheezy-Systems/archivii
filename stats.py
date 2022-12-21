@@ -19,7 +19,15 @@ for post in posts:
         authors[post.author.get("Name")] = [post.likeCount]
 
 for author in authors:
-    print(""+author + ': ' + str(round(sum(authors[author])/len(authors[author]), 3)) + ' averages likes per post')
+    #sort by average likes per post before printing
+    average = round(sum(authors[author])/len(authors[author]), 3)
+    authors[author] = average
+    print(authors[author])
+
+authors = dict(sorted(authors.items(), key=lambda item: item[1], reverse=True))
+
+for author in authors:
+    print(""+author + ' averages ' + str(authors[author]) + ' likes per post')
 
 with open("posts.json", 'w') as f:
     f.write(json.dumps([ob.__dict__ for ob in posts], indent=4))
