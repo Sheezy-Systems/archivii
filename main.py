@@ -14,9 +14,9 @@ previousCount = 0
 class Post:
     def __init__(self, authorID, authorName, postID, likeCount, content):
         self.author = {"Name": authorName, "id": authorID}
-        self.postID = postID
         self.content = content
         self.likeCount = likeCount
+        self.id = postID
 
     def __str__(self):
         return f'{self.author}: {self.content}'
