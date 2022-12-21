@@ -12,11 +12,11 @@ posts, tmp = [], []
 previousCount = 0
 
 class Post:
-    def __init__(self, authorID, authorName, likeCount, content):
+    def __init__(self, authorID, authorName, postID, likeCount, content):
         self.author = {"Name": authorName, "id": authorID}
+        self.postID = postID
         self.content = content
         self.likeCount = likeCount
-
 
     def __str__(self):
         return f'{self.author}: {self.content}'
@@ -44,7 +44,7 @@ def parseLink(TYPE, GROUP_ID, page=0):
         f.write(str(soup.prettify()))
     
     for post in soup.find_all(class_='s-edge-type-update-post'):
-        author = post.find(class_='update-sentence-inner').find('a').text
+        authorelement = post.find(class_='update-sentence-inner').find('a')
         text = ""
         for i in range(len(post.find_all('p'))):
             text += post.find_all('p')[i].text + '\n' # add newline to end of each paragraph
@@ -59,13 +59,13 @@ def parseLink(TYPE, GROUP_ID, page=0):
             try:
                 if splitURL[2] == "n" and (linkClass == ['like-details-btn'] or linkClass =='like-details-btn'):
                     likeCount = link.text
-                    authorID = splitURL[-1]
+                    postID = splitURL[-1]
             except IndexError:
                 pass # Not a like count anyways
             text = text.replace("\u00a0", "")
             text = text.replace("\\n", "\n")
 
-        tmp.append(Post(authorID, author, likeCount, text))
+        tmp.append(Post(authorelement.get("href").split("/")[-1], authorelement.text, postID, likeCount, text))
 
     if len(tmp) > previousCount:
         previousCount = len(tmp)
