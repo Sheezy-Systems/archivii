@@ -62,14 +62,13 @@ def parseLink(TYPE, GROUP_ID):
 def fetchFullText(postID):
     pass
 
-
 if __name__ == '__main__':
     BASE_URL = "https://schoology.tesd.net"
     TYPE = "group"
     GROUP_ID = "812485279"
-    # url = BASE_URL + GROUP_ID + '/feed?page=0' #real
     load_dotenv()
     posts = parseLink(TYPE, GROUP_ID)
+
     for post in posts:
         print (str(post) + "\n\n")
     print("Found " + str(len(posts)) + " posts")
