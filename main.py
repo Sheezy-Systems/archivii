@@ -23,10 +23,15 @@ def do_request(reqURL, secret):
     return response
 
 def parseLink(url):
+    tmp = []
     response = do_request(url, os.environ["SECRET"])
     html = json.loads(response.text).get('output')
     html = re.subn(r'<(script).*?</\1>(?s)', '', html, flags=re.DOTALL)[0]
     soup = bs4.BeautifulSoup(html, 'html.parser')
+
+    
+    with codecs.open("out.html", 'w', "utf-8") as f:
+        f.write(str(soup.prettify()))
     
     for post in soup.find_all(class_='s-edge-type-update-post'):
         author = post.find(class_='update-sentence-inner').find('a').text
@@ -34,15 +39,11 @@ def parseLink(url):
         for i in range(len(post.find_all('p'))):
             text += post.find_all('p')[i].text + '\n'
         text = text[:-2]
-        posts.append(Post(None, author, text))
+        tmp.append(Post(None, author, text))
+
+    return tmp
 
 
-    for post in posts:
-        print(str(post) + '\n')
-        
-
-    with codecs.open("out.html", 'w', "utf-8") as f:
-            f.write(str(soup.prettify()))
 
 if __name__ == '__main__':
     BASE_URL = "https://schoology.tesd.net/group/812485279"
