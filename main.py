@@ -33,7 +33,7 @@ def parseLink(TYPE, GROUP_ID, page=0):
     global previousCount, tmp
     url = settings.get("BASE_URL") + "/" + TYPE + "/" + GROUP_ID + '/feed?page=' + str(page)
     print("Checking page " + str(page) + "...")
-    authorID, likeCount = "" , 0
+    authorID, postID, likeCount, = "" , "", 0
     response = do_request(url)
     html = json.loads(response.text).get('output') # get html from json
     html = re.subn(r'<(script).*?</\1>(?s)', '', html, flags=re.DOTALL)[0] # remvoe js from html
@@ -67,7 +67,7 @@ def parseLink(TYPE, GROUP_ID, page=0):
 
         tmp.append(Post(authorelement.get("href").split("/")[-1], authorelement.text, postID, likeCount, text))
 
-    if len(tmp) > previousCount:
+    if len(tmp) > previousCount and len(tmp) != 0:
         previousCount = len(tmp)
         page += 1
         parseLink(TYPE, GROUP_ID, page)
