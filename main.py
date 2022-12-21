@@ -46,6 +46,7 @@ def parseLink(url):
 
 
 if __name__ == '__main__':
-    BASE_URL = "https://schoology.tesd.net/group/812485279"
-    url = BASE_URL + '/feed?page=0'
+    BASE_URL = "https://schoology.tesd.net/group/"
+    GROUP_ID = "812485279"
+    url = BASE_URL + GROUP_ID + '/feed?page=0'
     parseLink(url)
