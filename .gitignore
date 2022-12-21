@@ -4,3 +4,4 @@ out.html
 .env
 .vscode/settings.json
 posts.json
+sortedPosts.json

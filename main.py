@@ -7,19 +7,10 @@ import codecs
 import os
 from dotenv import load_dotenv
 import colorama
+from post import Post
 settings = {}
 posts, tmp = [], []
 previousCount = 0
-
-class Post:
-    def __init__(self, authorID, authorName, postID, likeCount, content):
-        self.author = {"Name": authorName, "id": authorID}
-        self.content = content
-        self.likeCount = likeCount
-        self.id = postID
-
-    def __str__(self):
-        return f'{self.author}: {self.content}'
 
 def do_request(reqURL):
     cookies = {
@@ -58,7 +49,7 @@ def parseLink(TYPE, GROUP_ID, page=0):
                 text = fetchFullText(splitURL[2], splitURL[-1])
             try:
                 if splitURL[2] == "n" and (linkClass == ['like-details-btn'] or linkClass =='like-details-btn'):
-                    likeCount = link.text
+                    likeCount = int(link.text.split(" ")[0])
                     postID = splitURL[-1]
             except IndexError:
                 pass # Not a like count anyways
