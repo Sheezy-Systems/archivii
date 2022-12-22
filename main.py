@@ -19,14 +19,14 @@ def do_request(reqURL):
     time.sleep(0.1) # slow down (schoology has a rate limit of 3 requests per second)
     return response
 
-def parseLink(TYPE, GROUP_ID, page=0):
+def parseLink(TYPE, GROUP_ID, page=0, limit=1000):
     global previousCount, tmp
     url = settings.get("BASE_URL") + "/" + TYPE + "/" + GROUP_ID + '/feed?page=' + str(page)
     print("Checking page " + str(page) + "...")
     authorID, postID, likeCount, = "" , "", 0
     response = do_request(url)
     html = json.loads(response.text).get('output') # get html from json
-    html = re.subn(r'<(script).*?</\1>(?s)', '', html, flags=re.DOTALL)[0] # remove js from html
+    html = re.subn(r'(?s)<(script).*?</\1>', '', html, flags=re.DOTALL)[0] # remove js from html
     soup = bs4.BeautifulSoup(html, 'html.parser') # use bs4 to parse html
     
     #write beautified version
@@ -57,10 +57,10 @@ def parseLink(TYPE, GROUP_ID, page=0):
 
         tmp.append(Post(authorelement.get("href").split("/")[-1], authorelement.text, postID, likeCount, text))
 
-    if len(tmp) > previousCount and len(tmp) != 0:
+    if len(tmp) > previousCount and len(tmp) != 0 and limit > page:
         previousCount = len(tmp)
         page += 1
-        parseLink(TYPE, GROUP_ID, page)
+        parseLink(TYPE, GROUP_ID, page, limit)
     return tmp
 
 def fetchFullText(ID1, ID2):
@@ -83,7 +83,7 @@ if __name__ == '__main__':
         exit()
 
     load_dotenv()
-    posts = parseLink(settings.get("TYPE"), settings.get("ID"))
+    posts = parseLink(settings.get("TYPE"), settings.get("ID"), 0, settings.get("LIMIT"))
     print("Done, found " + str(len(posts)) + " posts.")
     with open("posts.json", 'w') as f:
         f.write(json.dumps([ob.__dict__ for ob in posts], indent=4))
