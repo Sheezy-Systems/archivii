@@ -9,7 +9,6 @@ import os
 from dotenv import load_dotenv
 import colorama
 from post import Post
-import chardet
 settings = {}
 posts, tmp = [], []
 previousCount = 0
@@ -125,7 +124,10 @@ if __name__ == '__main__':
         exit()
 
     load_dotenv()
-    posts = parseLink(settings.get("TYPE"), settings.get("ID"), 0, settings.get("LIMIT"))
+    limit = settings.get("LIMIT")
+    if limit == None:
+        limit = 0x0FFFFFFF
+    posts = parseLink(settings.get("TYPE"), settings.get("ID"), 0, limit)
     print("Done, found " + str(len(posts)) + " posts.")
     with open("posts.json", 'w') as f:
         f.write(json.dumps([ob.__dict__ for ob in posts], indent=4))
