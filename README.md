@@ -1,6 +1,6 @@
 ![Archivii](./images/banner.png)
 
-Archivii is a statistics and archival tool for Schoology posts.
+Archivii is a statistics and archival tool for Schoology posts. Now in rust!
 
 ## Setup
 

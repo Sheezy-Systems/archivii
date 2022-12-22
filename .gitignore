@@ -1,8 +1,13 @@
+# ide folders
+.vscode/
+.idea/
+
 # archivii
-__pycache__/
-out.html
 .env
-.vscode/settings.json
+out.html
 posts.json
 sortedPosts.json
 config.json
+
+# rust
+target/
