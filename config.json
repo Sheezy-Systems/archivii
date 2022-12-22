@@ -1,7 +1,7 @@
 {
-    "BASE_URL": "https://schoology.tesd.net",
+    "BASE_URL": "http://schoology.com",
     "TYPE": "group",
-    "ID" : "812485279",
+    "ID" : "123456789",
     "COOKIE_NAME": "SESS61c75f44be1e14cdb172294ad6a89a4e",
     "LIMIT": 5
 }
