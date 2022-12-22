@@ -1,11 +1,13 @@
 ![Archivii](./images/banner.png)
 
-Archivii is a statistics and archival tool for schoology posts.
+Archivii is a statistics and archival tool for Schoology posts.
 
 ## Setup
-> `⚠ Warning:` Never share your schoology secret with anybody
 
-Create a `.env` file and set `SECRET` to your schoology secret. 
+> **Warning**  
+> Never share your schoology secret with anybody!
+
+Create a `.env`, and in it set `SECRET` to your schoology secret. 
 
 
 ## Acknowledgements
