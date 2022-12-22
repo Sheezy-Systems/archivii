@@ -111,7 +111,6 @@ def parseComment(text):
                 "id": author.get("href").split("/")[-1]
             }
         })
-    print("Found " + str(len(commentsList)) + " comments")
     return commentsList
 
 def removeScripts(html):
