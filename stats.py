@@ -10,7 +10,7 @@ posts.sort(key=lambda x: x['likeCount'], reverse=True)
 for i in range(len(posts)):
     posts[i] = Post(posts[i]['author']['id'], posts[i]['author']['Name'], posts[i]['id'], posts[i]['likeCount'], posts[i]['content'])
 
-#for each author, get the mean number of likes on their posts
+#for each author, get the average number of likes on their posts
 authors = {}
 for post in posts:
     if post.author.get("Name") in authors:

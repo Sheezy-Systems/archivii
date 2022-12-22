@@ -6,7 +6,6 @@ import re
 import codecs
 import os
 from dotenv import load_dotenv
-import colorama
 from post import Post
 settings = {}
 posts, tmp = [], []
@@ -17,7 +16,7 @@ def do_request(reqURL):
         settings.get("COOKIE_NAME"): os.environ["SECRET"] # Authorization cookie has this name
     }
     response = requests.get(reqURL, cookies=cookies)
-    time.sleep(0.1) # Schoology has a rate limit of 3 requests per second, this works for some reason
+    time.sleep(0.1) # slow down (schoology has a rate limit of 3 requests per second)
     return response
 
 def parseLink(TYPE, GROUP_ID, page=0):
@@ -27,7 +26,7 @@ def parseLink(TYPE, GROUP_ID, page=0):
     authorID, postID, likeCount, = "" , "", 0
     response = do_request(url)
     html = json.loads(response.text).get('output') # get html from json
-    html = re.subn(r'<(script).*?</\1>(?s)', '', html, flags=re.DOTALL)[0] # remvoe js from html
+    html = re.subn(r'<(script).*?</\1>(?s)', '', html, flags=re.DOTALL)[0] # remove js from html
     soup = bs4.BeautifulSoup(html, 'html.parser') # use bs4 to parse html
     
     #write beautified version
