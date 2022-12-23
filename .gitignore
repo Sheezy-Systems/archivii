@@ -2,6 +2,7 @@
 .env
 *.html
 *.json
+output/
 
 # IDE Specific folders
 .vscode/
