@@ -7,8 +7,10 @@ use std::io::BufReader;
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
 use reqwest;
+use reqwest::blocking::Response;
 use reqwest::header;
 use soup::prelude::*;
+use tokio::runtime::Handle;
 
 static SCHOOLOGY_BASEURL: &str = "https://schoology.tesd.net";
 static AUTH_COOKIE_NAME: &str= "SESS61c75f44be1e14cdb172294ad6a89a4e";
@@ -24,32 +26,61 @@ fn main() {
     let config: Config = serde_json::from_reader(config_file).expect("config.json was improperly formatted");
 
 
-    parse_link(config, secret)
+    parse_link(config, &secret)
 }
 
-fn parse_link(config:Config, secret:String) {
-    let page:u32 = 0;
+fn make_schoology_request(url: String, secret: &String) -> Response {
     let mut headers = header::HeaderMap::new();
     headers.insert("accept", header::HeaderValue::from_static(ACCEPT));
     headers.insert("cookie", header::HeaderValue::from_str(&*format!("{}={}", AUTH_COOKIE_NAME, secret)).unwrap());
 
     let client = reqwest::blocking::Client::builder().default_headers(headers).build().unwrap();
-    let response: Response = client.get(
-        format!("{}/{}/{}/feed?page={}", SCHOOLOGY_BASEURL, config.realm, config.id, page)
-    ).send().unwrap().json().expect("Failed to parse response as json or bad SECRET");
+
+    client.get(url).send().unwrap()
+}
+
+fn parse_link(config:Config, secret: &String) {
+    let page:u32 = 0;
+    let response: FeedResponse = make_schoology_request(
+        format!("{}/{}/{}/feed?page={}", SCHOOLOGY_BASEURL, config.realm, config.id, page),
+        secret
+    ).json().expect("Failed to parse response as json or bad SECRET");
+
     let soup = Soup::new(&*response.output);
     for post in soup.attr("class", "s-edge-type-update-post").find_all() {
-        let author_element = post
+        let author = post
             .attr("class", "update-sentence-inner").find().unwrap()
-            .tag("a").find().unwrap();
-        println!("{}", author_element.text())
+            .tag("a").find().unwrap().text();
+
+        let mut content: String = post.tag("p").find_all().map(|line| line.text() + "\n").collect();
+
+        match post.attr("class", "show-more-link").find() {
+            Some(show_more) => {
+                let response: ShowMoreResponse = make_schoology_request(
+                    format!("{}/{}", SCHOOLOGY_BASEURL, show_more.get("href").unwrap()),
+                    secret
+                ).json().expect("Failed to parse response as json or bad SECRET");
+
+                let soup = Soup::new(&*response.update);
+                content = soup.tag("p").find_all().map(|line| line.text() + "\n").collect();
+            }
+            _ => {}
+        }
+        content.truncate(content.trim_end_matches(&['\r', '\n'][..]).len());
+
+        println!("{}\n", content)
     }
 
 }
 
 #[derive(Serialize, Deserialize)]
-struct Response {
+struct FeedResponse {
     output: String
+}
+
+#[derive(Serialize, Deserialize)]
+struct ShowMoreResponse {
+    update: String
 }
 
 #[derive(Serialize, Deserialize)]
