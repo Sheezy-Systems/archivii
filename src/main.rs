@@ -48,13 +48,18 @@ fn parse_link(config:Config, secret: &String) {
 
     let soup = Soup::new(&*response.output);
     for post in soup.attr("class", "s-edge-type-update-post").find_all() {
-        let author = post
+
+        let id = post.attr("class", "like-btn").find().unwrap()
+            .get("ajax").unwrap().rsplit("/").next().unwrap().to_string();
+
+        let author_name = post
             .attr("class", "update-sentence-inner").find().unwrap()
             .tag("a").find().unwrap().text();
 
         let mut content: String = post.tag("p").find_all().map(|line| line.text() + "\n").collect();
 
         match post.attr("class", "show-more-link").find() {
+            // If there's a "Show More" prompt
             Some(show_more) => {
                 let response: ShowMoreResponse = make_schoology_request(
                     format!("{}/{}", SCHOOLOGY_BASEURL, show_more.get("href").unwrap()),
@@ -68,7 +73,7 @@ fn parse_link(config:Config, secret: &String) {
         }
         content.truncate(content.trim_end_matches(&['\r', '\n'][..]).len());
 
-        println!("{}\n", content)
+        println!("{}\n", id)
     }
 
 }
