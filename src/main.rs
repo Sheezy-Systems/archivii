@@ -73,7 +73,10 @@ fn parse_link(config:Config, secret: &String) {
         }
         content.truncate(content.trim_end_matches(&['\r', '\n'][..]).len());
 
-        println!("{}\n", id)
+        let like_count: u32 = post.attr("class", "like-details-btn").find().unwrap()
+            .text().split(" ").next().unwrap().parse().unwrap();
+
+        println!("{}", like_count)
     }
 
 }
