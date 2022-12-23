@@ -1,13 +1,11 @@
-# ide folders
+# Archivii
+.env
+*.html
+*.json
+
+# IDE Specific folders
 .vscode/
 .idea/
 
-# archivii
-.env
-out.html
-posts.json
-sortedPosts.json
-config.json
-
-# rust
+# Rust
 target/
