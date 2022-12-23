@@ -30,6 +30,7 @@ fn main() {
 }
 
 fn make_schoology_request(url: String, secret: &String) -> Response {
+    // TODO: schoology has a limit of 15 requests per five seconds, add a rate limit
     let mut headers = header::HeaderMap::new();
     headers.insert("accept", header::HeaderValue::from_static(ACCEPT));
     headers.insert("cookie", header::HeaderValue::from_str(&*format!("{}={}", AUTH_COOKIE_NAME, secret)).unwrap());
@@ -75,8 +76,25 @@ fn parse_link(config:Config, secret: &String) {
 
         let like_count: u32 = post.attr("class", "like-details-btn").find().unwrap()
             .text().split(" ").next().unwrap().parse().unwrap();
+        let k = make_schoology_request(
+            format!("{}/comment/ajax/{}&context=updates", SCHOOLOGY_BASEURL, id),
+            secret
+        );
+        let comment_response: CommentsResponse = k.json().expect("Failed to parse comment response as json or bad SECRET");
+        let mut comment_list: Vec<(String, String)> = Vec::new();
+        let comment_soup = Soup::new(&*comment_response.comments);
+        let comments = comment_soup.attr("class", "comment-comment").find_all();
+        comment_list = comments.map(|comment| {
+            let author = comment.attr("class", "comment-author").find().unwrap().tag("a").find().unwrap().text();
+            let text = comment.attr("class", "comment-body-wrapper").find().unwrap().text();
+            (author, text)
+        }).collect();
 
-        println!("{}", like_count)
+
+        for (author, text) in comment_list {
+            println!("Author: {}", author);
+            println!("Text: {}", text);
+        }
     }
 
 }
@@ -89,6 +107,12 @@ struct FeedResponse {
 #[derive(Serialize, Deserialize)]
 struct ShowMoreResponse {
     update: String
+}
+
+#[derive(Serialize, Deserialize)]
+struct CommentsResponse {
+    comments: String,
+    count: String // Schoology stores count as a string.
 }
 
 #[derive(Serialize, Deserialize)]
