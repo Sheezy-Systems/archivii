@@ -71,7 +71,9 @@ def parseLink(TYPE, GROUP_ID, page=0, limit=1000):
 
         tmp.append(Post(authorelement.get("href").split("/")[-1], authorelement.text, postID, likeCount, text, commentList))
 
-    if len(tmp) > previousCount and len(tmp) != 0 and limit > page:
+    if len(tmp) > previousCount and len(tmp) != 0:
+        if page + 1 > limit:
+            return tmp
         previousCount = len(tmp)
         page += 1
         parseLink(TYPE, GROUP_ID, page, limit)
@@ -124,10 +126,13 @@ if __name__ == '__main__':
         exit()
 
     load_dotenv()
-    limit = settings.get("LIMIT")
+    limit = settings.get("PAGE_LIMIT", 0x0FFFFFFF)
     if limit == None:
-        limit = 0x0FFFFFFF
-    posts = parseLink(settings.get("TYPE"), settings.get("ID"), 0, limit)
+        limit = 0x0FFFFFFFF
+    START = settings.get("START_PAGE", 0)
+    if START == None:
+        START = 0
+    posts = parseLink(settings.get("TYPE"), settings.get("ID"), START, limit)
     print("Done, found " + str(len(posts)) + " posts.")
     with open("posts.json", 'w') as f:
         f.write(json.dumps([ob.__dict__ for ob in posts], indent=4))
