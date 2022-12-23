@@ -26,8 +26,19 @@ fn main() {
     let config_file = BufReader::new(File::open("config.json").expect("Could not find config.json"));
     let config: Config = serde_json::from_reader(config_file).expect("config.json was improperly formatted");
 
-
-    scrape_realm_by_page(config.realm, config.id, 0, &secret)
+    let mut posts: Vec<SchoologyPost> = Vec::new();
+    let mut authors: HashMap<String, SchoologyUser> = HashMap::new();
+    for page in (config.start)..(config.start+config.limit) {
+        let (mut new_posts, new_authors) = scrape_realm_by_page(&config.realm, &config.id, page, &secret);
+        posts.append(&mut new_posts);
+        authors.extend(new_authors);
+    }
+    for (k,v) in authors {
+        println!("{} {}", k, v.name);
+    }
+    for post in posts {
+        println!("==\n{}-{}-{}\n{}\n==", post.author, post.like_count, post.comments.len(), post.content);
+    }
 }
 
 fn make_schoology_request(url: String, secret: &String) -> Response {
@@ -43,9 +54,9 @@ fn make_schoology_request(url: String, secret: &String) -> Response {
     result
 }
 
-fn scrape_realm_by_page(realm: String, id: String, page: u32, secret: &String) {
-    let mut authors: HashMap<String, SchoologyUser> = HashMap::new();
+fn scrape_realm_by_page(realm: &String, id: &String, page: u32, secret: &String) -> (Vec<SchoologyPost>, HashMap<String, SchoologyUser>) {
     let mut posts: Vec<SchoologyPost> = Vec::new();
+    let mut authors: HashMap<String, SchoologyUser> = HashMap::new();
 
     let response: FeedResponse = make_schoology_request(
         format!("{}/{}/{}/feed?page={}", SCHOOLOGY_BASEURL, realm, id, page),
@@ -126,13 +137,15 @@ fn scrape_realm_by_page(realm: String, id: String, page: u32, secret: &String) {
         }).collect();
 
         posts.push(SchoologyPost {
-            author: "".to_string(),
+            author: author_id,
             content,
             like_count,
             likes: vec![], // todo: likes
             comments,
         })
     }
+
+    (posts, authors)
 }
 
 
