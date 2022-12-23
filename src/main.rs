@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::{env, fmt, thread, time::Duration};
+use std::collections::HashMap;
 use std::fmt::{format};
 use std::fs::File;
 use std::io::BufReader;
@@ -13,7 +14,7 @@ use soup::prelude::*;
 use tokio::runtime::Handle;
 
 static SCHOOLOGY_BASEURL: &str = "https://schoology.tesd.net";
-static AUTH_COOKIE_NAME: &str= "SESS61c75f44be1e14cdb172294ad6a89a4e";
+static AUTH_COOKIE_NAME: &str = "SESS61c75f44be1e14cdb172294ad6a89a4e";
 static ACCEPT: &str = "application/json, text/javascript, */*; q=0.01";
 
 fn main() {
@@ -26,7 +27,7 @@ fn main() {
     let config: Config = serde_json::from_reader(config_file).expect("config.json was improperly formatted");
 
 
-    parse_link(config, &secret)
+    scrape_realm_by_page(config.realm, config.id, 0, &secret)
 }
 
 fn make_schoology_request(url: String, secret: &String) -> Response {
@@ -42,11 +43,13 @@ fn make_schoology_request(url: String, secret: &String) -> Response {
     result
 }
 
-fn parse_link(config:Config, secret: &String) {
-    let page:u32 = 0;
+fn scrape_realm_by_page(realm: String, id: String, page: u32, secret: &String) {
+    let mut authors: HashMap<String, SchoologyUser> = HashMap::new();
+    let mut posts: Vec<SchoologyPost> = Vec::new();
+
     let response: FeedResponse = make_schoology_request(
-        format!("{}/{}/{}/feed?page={}", SCHOOLOGY_BASEURL, config.realm, config.id, page),
-        secret
+        format!("{}/{}/{}/feed?page={}", SCHOOLOGY_BASEURL, realm, id, page),
+        secret,
     ).json().expect("Failed to parse response as JSON: Possibly bad SECRET or rate-limiting");
 
     let soup = Soup::new(&*response.output);
@@ -57,9 +60,17 @@ fn parse_link(config:Config, secret: &String) {
             .get("ajax").unwrap().rsplit("/").next().unwrap().to_string();
 
         // Get post author
-        let author_name = post
-            .attr("class", "update-sentence-inner").find().unwrap()
-            .tag("a").find().unwrap().text();
+        let author_anchor = post.attr("class", "update-sentence-inner").find().unwrap().tag("a").find().unwrap();
+        let author_id = author_anchor.get("href").unwrap().rsplit("/").next().unwrap().to_string();
+
+        // if our author isn't in our list, add it
+        if !authors.contains_key(&author_id) {
+            authors.insert(author_id.clone(), SchoologyUser {
+                id: author_id.clone(),
+                name: author_anchor.text(),
+                avatar: "".to_string(), // todo: avatar
+            });
+        }
 
         // Get post content
         let mut content: String = post.tag("p").find_all().map(|line| line.text() + "\n").collect();
@@ -69,7 +80,7 @@ fn parse_link(config:Config, secret: &String) {
             Some(show_more) => {
                 let response: ShowMoreResponse = make_schoology_request(
                     format!("{}/{}", SCHOOLOGY_BASEURL, show_more.get("href").unwrap()),
-                    secret
+                    secret,
                 ).json().expect("Failed to parse response as JSON: Possibly bad SECRET or rate-limiting");
 
                 let soup = Soup::new(&*response.update);
@@ -77,79 +88,94 @@ fn parse_link(config:Config, secret: &String) {
             }
             _ => {}
         }
+
         content.truncate(content.trim_end_matches(&['\r', '\n'][..]).len());
 
-        // Get post like count
         let like_count: u32 = post.attr("class", "like-details-btn").find().unwrap()
             .text().split(" ").next().unwrap().parse().unwrap();
 
         // Get post comments
-        let mut comment_list: Vec<(String, String)> = Vec::new();
+        let mut comments: Vec<SchoologyComment> = Vec::new();
 
         let comment_response: CommentsResponse = make_schoology_request(
             format!("{}/comment/ajax/{}&context=updates", SCHOOLOGY_BASEURL, id),
-            secret
+            secret,
         ).json().expect("Failed to parse response as JSON: Possibly bad SECRET or rate-limiting");
 
         let comment_soup = Soup::new(&*comment_response.comments);
-        let comments = comment_soup.attr("class", "comment-comment").find_all();
+        comments = comment_soup.attr("class", "comment-comment").find_all().map(|comment| {
+            let author_anchor = comment.attr("class", "comment-author").find().unwrap().tag("a").find().unwrap();
+            let author_id = author_anchor.get("href").unwrap().rsplit("/").next().unwrap().to_string();
 
-        comment_list = comments.map(|comment| {
-            let author = comment.attr("class", "comment-author").find().unwrap().tag("a").find().unwrap().text();
-            let text = comment.attr("class", "comment-body-wrapper").find().unwrap().text();
-            (author, text)
+            // if our author isn't in our list, add it
+            if !authors.contains_key(&author_id) {
+                authors.insert(author_id.clone(), SchoologyUser {
+                    id: author_id.clone(),
+                    name: author_anchor.text(),
+                    avatar: "".to_string(), // todo: avatar
+                });
+            }
+
+            SchoologyComment {
+                author: author_id.clone(),
+                content: comment.attr("class", "comment-body-wrapper").find().unwrap().text(),
+                timestamp: "".to_string(),
+                like_count, // todo: likes and like count
+                likes: vec![],
+            }
         }).collect();
 
-
-        for (author, text) in comment_list {
-            println!("Author: {}", author);
-            println!("Text: {}", text);
-        }
+        posts.push(SchoologyPost {
+            author: "".to_string(),
+            content,
+            like_count,
+            likes: vec![], // todo: likes
+            comments,
+        })
     }
-
 }
+
 
 #[derive(Deserialize)]
 struct SchoologyPost {
     author: String,
-    text: String,
+    content: String,
     like_count: u32,
     likes: Vec<String>,
-    comments: Vec<SchoologyComment>
+    comments: Vec<SchoologyComment>,
 }
 
 #[derive(Deserialize)]
 struct SchoologyComment {
     author: String,
-    text: String,
+    content: String,
     timestamp: String,
     like_count: u32,
-    likes: Vec<String>
+    likes: Vec<String>,
 }
 
 #[derive(Deserialize)]
 struct SchoologyUser {
     id: String,
     name: String,
-    timestamp: String,
-    avatar: String
+    avatar: String,
     // ... todo: badges, email, groups, schools
 }
 
 #[derive(Deserialize)]
 struct FeedResponse {
-    output: String
+    output: String,
 }
 
 #[derive(Deserialize)]
 struct ShowMoreResponse {
-    update: String
+    update: String,
 }
 
 #[derive(Deserialize)]
 struct CommentsResponse {
     comments: String,
-    count: String // Schoology stores count as a string.
+    count: String, // Schoology stores count as a string.
 }
 
 #[derive(Deserialize)]
