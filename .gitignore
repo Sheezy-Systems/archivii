@@ -1,8 +1,12 @@
-# archivii
-__pycache__/
-out.html
+# Archivii
 .env
-.vscode/settings.json
-posts.json
-sortedPosts.json
-config.json
+*.html
+*.json
+output/
+
+# IDE Specific folders
+.vscode/
+.idea/
+
+# Rust
+target/
