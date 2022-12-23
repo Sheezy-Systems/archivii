@@ -12,26 +12,33 @@ from post import Post
 settings = {}
 posts, tmp = [], []
 previousCount = 0
+SECRET = None
+RATELIMIT = settings.get("RATELIMIT", 330)/1000
 
 def do_request(reqURL):
     cookies = {
-        settings.get("COOKIE_NAME"): os.environ["SECRET"] # Authorization cookie has this name
+        settings.get("COOKIE_NAME"): SECRET # Authorization cookie has this name
     }
     headers = {
        "accept": "application/json, text/javascript, */*; q=0.01",
     }
     response = requests.get(reqURL, cookies=cookies, headers=headers)
     response.encoding = 'ascii'
-    time.sleep(0.08) # Schoology has a rate limit of 3 requests per second, this works for some reason
+    time.sleep(RATELIMIT) # Schoology has a rate limit of 3 requests per second, this works for some reason
     return response
 
-def parseLink(TYPE, GROUP_ID, page=0, limit=1000):
+def parseLink(TYPE, REALM_ID, page=0, limit=1000):
     global previousCount, tmp
-    url = settings.get("BASE_URL") + "/" + TYPE + "/" + GROUP_ID + '/feed?page=' + str(page)
+    url = settings.get("BASE_URL") + "/" + TYPE + "/" + REALM_ID + '/feed?page=' + str(page)
     print("Checking page " + str(page) + "...")
     authorID, postID, likeCount, = "" , "", 0
     response = do_request(url)
-    html = json.loads(response.text.encode('utf-8').decode("ascii")).get('output') # get html from json
+    try:
+        html = json.loads(response.text.encode('utf-8').decode("ascii")).get('output') # get html from json
+    except:
+        print(colorama.Fore.RED + "Error fetching page" + colorama.Style.RESET_ALL)
+        print(response.text)
+        exit()
     html = removeScripts(html)
     soup = bs4.BeautifulSoup(html, 'html.parser') # use bs4 to parse html
     
@@ -43,6 +50,8 @@ def parseLink(TYPE, GROUP_ID, page=0, limit=1000):
         authorelement = post.find(class_='update-sentence-inner').find('a')
         commentList = []
         text = ""
+        likeBtn = post.find(class_='like-btn')
+        postID = likeBtn.get("ajax").split("/")[-1]
         for i in range(len(post.find_all('p'))):
             text += post.find_all('p')[i].text + '\n' # add newline to end of each paragraph
         text = text[:-2] # remove trailing newline
@@ -54,7 +63,6 @@ def parseLink(TYPE, GROUP_ID, page=0, limit=1000):
             try:
                 if splitURL[2] == "n" and (linkClass == ['like-details-btn'] or linkClass =='like-details-btn'):
                     likeCount = int(link.text.split(" ")[0])
-                    postID = splitURL[-1]
             except IndexError:
                 pass # Not a like count anyways
             text = text.replace("\u00a0", "")
@@ -76,7 +84,7 @@ def parseLink(TYPE, GROUP_ID, page=0, limit=1000):
             return tmp
         previousCount = len(tmp)
         page += 1
-        parseLink(TYPE, GROUP_ID, page, limit)
+        parseLink(TYPE, REALM_ID, page, limit)
     return tmp
 
 def fetchFullText(ID1, ID2):
@@ -86,6 +94,7 @@ def fetchFullText(ID1, ID2):
         soup = bs4.BeautifulSoup(json.loads(response.text).get("update").encode().decode('unicode-escape'), 'html.parser')
     except:
         print(colorama.Fore.RED + "Error fetching full text" + colorama.Style.RESET_ALL)
+        exit()
         return ""
     return(soup.text)
 
@@ -100,7 +109,11 @@ def fetchAllComments(postID):
 
 def parseComment(text):
     commentsList = []
-    parsed = bs4.BeautifulSoup(json.loads(str(text)).get("comments"), 'html.parser')
+    try:
+        parsed = bs4.BeautifulSoup(json.loads(str(text)).get("comments"), 'html.parser')
+    except:
+        parsed = bs4.BeautifulSoup(str(text), 'html.parser')
+        return []
     comments = parsed.find_all('div', class_='comment-comment')
     for comment in comments:
         author = comment.find(class_='comment-author').find('a')
@@ -124,7 +137,6 @@ if __name__ == '__main__':
     except [FileNotFoundError]:
         print("No config file found")
         exit()
-
     load_dotenv()
     limit = settings.get("PAGE_LIMIT", 0x0FFFFFFF)
     if limit == None:
@@ -132,7 +144,14 @@ if __name__ == '__main__':
     START = settings.get("START_PAGE", 0)
     if START == None:
         START = 0
-    posts = parseLink(settings.get("TYPE"), settings.get("ID"), START, limit)
+    
+    try:
+        SECRET = os.environ["SECRET"]
+    except KeyError:
+        print("Could not find SECRET in your .env file")
+        exit()
+
+    posts = parseLink(settings.get("REALM"), settings.get("ID"), START, limit)
     print("Done, found " + str(len(posts)) + " posts.")
     with open("posts.json", 'w') as f:
         f.write(json.dumps([ob.__dict__ for ob in posts], indent=4))

@@ -1,8 +1,9 @@
 {
     "BASE_URL": "https://schoology.tesd.net",
-    "TYPE": "group",
+    "REALM": "group",
     "ID" : "812485279",
     "COOKIE_NAME": "SESS61c75f44be1e14cdb172294ad6a89a4e",
     "START_PAGE": null,
-    "PAGE_LIMIT": null
+    "PAGE_LIMIT": null,
+    "RATELIMIT": 330
 }
