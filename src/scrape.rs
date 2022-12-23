@@ -37,7 +37,6 @@ pub fn scrape_realm_by_page(realm: &String, id: &String, page: u32, secret: &Str
                 authors.insert(author_id.clone(), SchoologyUser {
                     id: author_id.clone(),
                     name: author_anchor.text(),
-                    avatar: "".to_string(), // todo: avatar
                 });
             }
 
@@ -70,25 +69,45 @@ pub fn scrape_realm_by_page(realm: &String, id: &String, page: u32, secret: &Str
             ).json().expect("Failed to parse response as JSON: Possibly bad SECRET or rate-limiting");
 
             let comment_soup = Soup::new(&*comment_response.comments);
-            let comments: Vec<SchoologyComment> = comment_soup.attr("class", "comment-comment").find_all().map(|comment| {
+            let comments: Vec<SchoologyComment> = comment_soup.attr("class", "discussion-card").find_all().map(|comment| {
                 let author_anchor = comment.attr("class", "comment-author").find().unwrap().tag("a").find().unwrap();
                 let author_id = author_anchor.get("href").unwrap().rsplit("/").next().unwrap().to_string();
+                let comment_id = comment.attr("class", "like-btn").find().unwrap().get("ajax").unwrap().rsplit("/").next().unwrap().to_string();
+                let likes_url = format!("{}/likes/c/{}", SCHOOLOGY_BASEURL, comment_id);
+                let likes_response = make_schoology_request(likes_url, secret).text().expect("Failed to parse response as JSON: Possibly bad SECRET or rate-limiting");
+                let likes_soup = Soup::new(&*likes_response);
+                let _likes_list = likes_soup.tag("ul").find().unwrap();
+                // println!("{}", likes_list.text());
+
+                let likes_list: Vec<String> = likes_soup.tag("ul").find().iter().map(|like| {
+                    let name = like.attr("class", "sExtlink-processed").find().unwrap().get("title").unwrap();
+                    let id = like.get("href").unwrap().rsplit("/").next().unwrap().to_string();
+                    if !authors.contains_key(&author_id) {
+                        authors.insert(author_id.clone(), SchoologyUser {
+                            id: id.clone(),
+                            name
+                        });
+                    }
+
+                    id
+                }).collect();
 
                 // if our author isn't in our list, add it
                 if !authors.contains_key(&author_id) {
                     authors.insert(author_id.clone(), SchoologyUser {
                         id: author_id.clone(),
                         name: author_anchor.text(),
-                        avatar: "".to_string(), // todo: avatar
                     });
                 }
+
 
                 SchoologyComment {
                     author: author_id.clone(),
                     content: comment.attr("class", "comment-body-wrapper").find().unwrap().text(),
+                    id: comment_id.clone(),
                     timestamp: "".to_string(),
                     like_count, // todo: likes and like count
-                    likes: vec![],
+                    likes: likes_list
                 }
             }).collect();
 

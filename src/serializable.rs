@@ -27,6 +27,7 @@ pub struct SchoologyPost {
 pub struct SchoologyComment {
     pub author: String,
     pub content: String,
+    pub id: String,
     pub timestamp: String,
     pub like_count: u32,
     pub likes: Vec<String>,
@@ -36,7 +37,6 @@ pub struct SchoologyComment {
 pub struct SchoologyUser {
     pub id: String,
     pub name: String,
-    pub avatar: String,
     // ... todo: badges, email, groups, schools
 }
 
