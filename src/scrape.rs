@@ -5,6 +5,7 @@ use reqwest;
 use reqwest::blocking::Response;
 use reqwest::header;
 use soup::prelude::*;
+use data_encoding::BASE64;
 use crate::{ACCEPT, AUTH_COOKIE_NAME, EMPTY_FEEDPAGE, SCHOOLOGY_BASEURL};
 
 use crate::serializable::*;
@@ -53,15 +54,16 @@ pub fn scrape_realm_by_page(realm: &String, id: &String, page: u32, secret: &Str
                     ).json().expect("Failed to parse response as JSON: Possibly bad SECRET or rate-limiting");
 
                     let soup = Soup::new(&*response.update);
-                    content = soup.tag("p").find_all().map(|line| line.text() + "\n").collect();
+                    content = soup.tag("p").find_all().map(|line| line.display() + "\n").collect();
                 }
                 _ => {}
             }
-
             content.truncate(content.trim_end_matches(&['\r', '\n'][..]).len());
 
-            let like_count: u32 = post.attr("class", "like-details-btn").find().unwrap()
-                .text().split(" ").next().unwrap().parse().unwrap();
+            let like_count: u32 = match post.attr("class", "like-details-btn").find() {
+                None => {0}
+                Some(details) => {details.text().split(" ").next().unwrap().parse().unwrap()}
+            };
 
             // Get post comments
             let comment_response: CommentsResponse = make_schoology_request(
@@ -85,16 +87,17 @@ pub fn scrape_realm_by_page(realm: &String, id: &String, page: u32, secret: &Str
 
                 SchoologyComment {
                     author: author_id.clone(),
-                    content: comment.attr("class", "comment-body-wrapper").find().unwrap().text(),
+                    content:  BASE64.encode(comment.attr("class", "comment-body-wrapper").find().unwrap().text()),
                     timestamp: "".to_string(),
                     like_count, // todo: likes and like count
                     likes: vec![],
                 }
             }).collect();
 
+
             posts.push(SchoologyPost {
                 author: author_id,
-                content,
+                content: BASE64.encode(content.as_ref()),
                 like_count,
                 likes: vec![], // todo: likes
                 comments,
